@@ -1,0 +1,593 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pickleholics</title>
+<style>
+:root{--bg:#f4f7ef;--card:#fff;--ink:#1d2a16;--mut:#6b7a60;--acc:#7cb518;--acc2:#3f6212;--bd:#dfe6d3;--bad:#c0392b}
+@media(prefers-color-scheme:dark){:root{--bg:#12170e;--card:#1b2315;--ink:#eaf2df;--mut:#97a58a;--bd:#2d3a22;--acc2:#a3d94f}}
+*{box-sizing:border-box}body{margin:0;font:15px system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+header{display:flex;align-items:center;gap:12px;padding:12px 18px;background:var(--acc2);color:#fff;flex-wrap:wrap}
+header h1{margin:0;font-size:20px}header .live{margin-left:auto;font-size:12px}
+nav{display:flex;gap:4px;padding:8px 14px;overflow-x:auto;background:var(--card);border-bottom:1px solid var(--bd)}
+nav button{border:0;background:none;color:var(--ink);padding:8px 14px;border-radius:8px;cursor:pointer;font-size:14px;white-space:nowrap}
+nav button.on{background:var(--acc);color:#10200a;font-weight:600}
+main{max-width:1100px;margin:auto;padding:16px}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px}.card h3{margin:0 0 8px;font-size:15px}
+button.b,input,select{font:inherit;padding:8px 12px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:var(--ink)}
+button.b{cursor:pointer;background:var(--acc);color:#10200a;border-color:var(--acc);font-weight:600}button.b.g{background:none;color:var(--ink);border-color:var(--bd)}button.b.d{background:var(--bad);border-color:var(--bad);color:#fff}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0}.mut{color:var(--mut);font-size:13px}
+.tag{display:inline-block;padding:2px 8px;border-radius:99px;font-size:12px;background:var(--bd)}.t1{background:#cfe8a9;color:#2a3d0c}.t2{background:#bfe0f3;color:#0d3347}.t3{background:#f6d9a6;color:#4d3300}.t4{background:#f4b8b8;color:#531212}
+table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:7px 8px;border-bottom:1px solid var(--bd)}
+.court{border-left:5px solid var(--acc)}.court.free{border-left-color:var(--bd)}.vs{font-weight:600}.score{width:64px}
+#toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:8px;display:none;z-index:9}
+#reader{max-width:360px}.qrbox{display:inline-block;background:#fff;padding:8px;border-radius:8px}
+.bracket{display:flex;gap:16px;overflow-x:auto}.bracket>div{min-width:230px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px;margin:10px 0}
+.qlayout{display:grid;grid-template-columns:minmax(270px,1fr) 2fr;gap:16px;align-items:start;margin-top:10px}@media(max-width:820px){.qlayout{grid-template-columns:1fr}}
+.qc{background:#111a0b;color:#eaf2df;border-radius:12px;overflow:hidden}.qh{display:flex;gap:8px;align-items:center;padding:12px 14px;background:#0b1207}.ql{max-height:640px;overflow:auto}
+.qr{display:flex;gap:12px;align-items:center;padding:10px 14px;border-top:1px solid #243319}.qn{font-size:22px;font-weight:700;color:#4ade80;width:28px;text-align:center}.qc .mut{color:#93a583}.qc .b.g{color:#eaf2df;border-color:#3b4e2b;background:none}.qc select{color-scheme:dark}
+.uh{display:flex;align-items:center;gap:8px;padding:10px 12px}.uh h3{margin:0;font-size:17px}.uc{padding:0;overflow:hidden}.teams{display:grid;grid-template-columns:1fr 1fr}
+.tl,.tr{padding:6px 12px;min-height:96px}.tl{background:rgba(59,130,246,.14);border-top:4px solid #3b82f6}.tr{background:rgba(249,115,22,.14);border-top:4px solid #f97316}
+.sl{display:flex;justify-content:space-between;align-items:flex-start;gap:6px;padding:8px 0}.sl select{width:100%}.x{border:0;background:none;color:var(--mut);font-size:20px;cursor:pointer;line-height:1}
+.court.free{border:1px dashed var(--bd)}.court .pv{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;text-align:center;padding:10px 0;min-height:70px}.court .wide{display:block;width:100%;margin-top:8px;padding:12px}.b:disabled{opacity:.5;cursor:not-allowed}
+.brand{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    margin:0;
+    font-size:22px;
+}
+
+.brand img{
+    width:52px;
+    height:52px;
+    border-radius:50%;
+    object-fit:cover;
+    background:#fff;
+    border:2px solid rgba(255,255,255,.35);
+    box-shadow:0 2px 6px rgba(0,0,0,.25);
+}
+
+.brand span{
+    color:#fff;
+    font-weight:700;
+}
+
+</style></head><body>
+<header><h1> <img src="/images/pickleholics.jpg"  width="50" height="50" 
+         alt="Pickleholics Logo"> Pickleholics</h1><span class="mut" style="color:#d6e8b8" id="sum"></span><span class="live" id="live">● connecting…</span>
+<button class="b g" style="color:#fff;border-color:#fff8" onclick="window.open('/live.html','_blank')">📺 Live view</button><button class="b g" style="color:#fff;border-color:#fff8" id="adminBtn">Admin</button></header>
+<nav id="nav"></nav><main id="main"></main><div id="toast"></div>
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+const SK=['','Beginner','Intermediate','Advanced','Pro'];let OFF=0,S=null,tab='courts',pin=sessionStorage.pin||'',scanner=null;
+const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const tag=k=>`<span class="tag t${k}">${SK[k]}</span>`,P=id=>S.players.find(p=>p.id===id),nm=id=>esc(P(id)?.name||'?');
+const mins=t=>Math.max(0,Math.floor((S.now-t)/60000))+'m';
+function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display='none',2800)}
+async function api(method,url,body){const r=await fetch(url,{method,headers:{'Content-Type':'application/json','x-admin-pin':pin},body:body?JSON.stringify(body):undefined});
+ const j=await r.json().catch(()=>({}));if(!r.ok){toast(j.error||'Error');throw 0}return j}
+const act=(m,u,b,msg)=>api(m,u,b).then(r=>{if(msg)toast(msg);return r}).catch(()=>{});
+async function load(){S=await (await fetch('/api/state')).json();OFF=S.now-Date.now();render()}
+function connect(){const es=new EventSource('/events');es.onopen=()=>{$('#live').textContent='● live';load()};es.onmessage=()=>{if(!document.activeElement?.matches('input,select'))load()};es.onerror=()=>$('#live').textContent='○ reconnecting…'}
+const isAdmin=()=>!!pin;
+const TABS=[
+['courts','Courts'],
+['queue','Queue'],
+['players','Players'],
+['leader','Leaderboard'],
+['history','History'],
+['tourney','Tournaments'],
+['checkin','QR Check-In'],
+['admin','Admin']
+];
+function nav(){$('#nav').innerHTML=TABS.map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="go('${k}')">${l}</button>`).join('');$('#adminBtn').textContent=isAdmin()?'Admin ✓':'Admin'}
+function go(t){if(scanner&&t!=='checkin'){scanner.stop().catch(()=>{});scanner=null}tab=t;render()}
+$('#adminBtn').onclick=async()=>{if(isAdmin()){pin='';sessionStorage.pin='';toast('Admin mode off');return render()}
+ const p=prompt('Admin PIN');if(!p)return;const r=await fetch('/api/admin/verify',{headers:{'x-admin-pin':p}});
+ if(r.ok){pin=p;sessionStorage.pin=p;toast('Admin mode on');go('admin')}else toast('Wrong PIN')};
+
+function render(){if(!S)return;nav();$('#sum').textContent=`${S.players.filter(p=>p.present).length} here · ${S.queue.length} waiting · ${S.matches.length}/${S.courts} courts live`;
+ if(tab==='checkin'&&scanner)return; ({
+ courts,
+ queue,
+ players,
+ leader,
+ history,
+ tourney,
+ checkin,
+ admin
+})[tab]()}
+function courts(){let h='<div class="row"><button class="b" onclick="act(\'POST\',\'/api/assign\',{}, \'Courts filled\')">Auto-assign free courts</button><span class="mut">Needs 4+ players waiting. Most idle first; winners vs winners, losers vs losers.</span></div><div class="grid">';
+ for(let c=1;c<=S.courts;c++){const m=S.matches.find(x=>x.court===c);
+  h+=m?`<div class="card court"><h3>Court ${c} <span class="mut">· ${mins(m.started)}</span></h3><div class="vs">${nm(m.t1a)} & ${nm(m.t1b)}</div><div class="mut">vs</div><div class="vs">${nm(m.t2a)} & ${nm(m.t2b)}</div>
+  <div class="row"><input class="score" type="number" min="0" id="a${m.id}" placeholder="T1"><input class="score" type="number" min="0" id="b${m.id}" placeholder="T2"><button class="b" onclick="fin(${m.id})">Finish</button><button class="b g" onclick="editM(${m.id})">Edit</button>
+  ${isAdmin()?`<button class="b g" onclick="act('POST','/api/admin/cancel/${m.id}')">Cancel</button>`:''}</div></div>`
+  :`<div class="card court free"><h3>Court ${c}</h3><div class="mut">Open — waiting for ${Math.max(0,4-S.queue.length)} more player(s)</div><div class="row"><button class="b g" onclick="B={match:null,court:${c},p:[0,0,0,0]};go('queue')">Assign players</button></div></div>`}
+ h+='</div><h3>Recent matches</h3><div class="card"><table>'+(S.history.map(m=>`<tr><td>${nm(m.t1a)} & ${nm(m.t1b)}</td><td><b>${m.s1} – ${m.s2}</b></td><td>${nm(m.t2a)} & ${nm(m.t2b)}</td></tr>`).join('')||'<tr><td class="mut">No matches yet</td></tr>')+'</table></div>';
+ $('#main').innerHTML=h}
+window.fin=id=>act('POST',`/api/match/${id}/finish`,{s1:parseInt($('#a'+id).value),s2:parseInt($('#b'+id).value)},'Result saved, ELO updated');
+let B={match:null,court:0,p:[0,0,0,0]},showAdd=false,usedUp=new Set();const noB=()=>{B={match:null,court:0,p:[0,0,0,0]}};
+window.editM=id=>{const m=S.matches.find(x=>x.id===id);B={match:id,court:m.court,p:[m.t1a,m.t1b,m.t2a,m.t2b]};go('queue')};
+window.choose=c=>{B={match:null,court:c,p:[0,0,0,0]};go('queue')};
+window.saveB=()=>(B.match?act('POST',`/api/match/${B.match}/edit`,{players:B.p},'Match updated'):act('POST','/api/assign/manual',{court:B.court,players:B.p},'Assigned to court')).then(r=>{if(r)noB()});
+const fmt=t=>{t=Math.max(0,Math.floor(t/1000));const h=Math.floor(t/3600),m=Math.floor(t%3600/60),s=t%60;return(h?h+':'+String(m).padStart(2,'0'):m)+':'+String(s).padStart(2,'0')};
+const wt=j=>`<span class="wt" data-t="${j}">${fmt(Date.now()+OFF-j)}</span>`;
+setInterval(()=>document.querySelectorAll('.wt').forEach(e=>e.textContent=fmt(Date.now()+OFF-e.dataset.t)),1000);
+const ab={1:'B',2:'I',3:'A',4:'P'},
+
+rate=p=>`${p.wins}W-${p.losses}L`;
+const slot=(u,i)=>{const id=u.slots[i],p=id&&P(id);
+ return p?`<div class="sl"><div><b>${esc(p.name)}</b><div class="mut">
+
+${p.wins}W-${p.losses}L
+
+<span class="tag t${p.skill}">
+${ab[p.skill]}
+</span>
+
+</div></div><button class="x" onclick="act('POST','/api/upnext/${u.id}/slot',{i:${i},player:null})">×</button></div>`
+ :`<div class="sl"><select onchange="if(+this.value)act('POST','/api/upnext/${u.id}/slot',{i:${i},player:+this.value})"><option value="0">+ pick player</option>${S.queue.filter(r=>!usedUp.has(r.player_id)).map(r=>`<option value="${r.player_id}">${esc(r.player.name)}</option>`).join('')}</select></div>`};
+const card=(u,i)=>{const ok=u.slots.every(Boolean);
+ return `<div class="card uc"><div class="uh"><h3>Up Next ${i+1}</h3><span class="tag">${u.mode==='auto'?'Auto':'Manual'}</span>${u.note?`<span class="tag t${u.note==='Winners'?1:u.note==='Losers'?4:3}">${esc(u.note)}</span>`:''}<span style="flex:1"></span><button class="b g" onclick="act('POST','/api/upnext/${u.id}/rebuild')">↻ Rebuild</button><button class="x" onclick="act('DELETE','/api/upnext/${u.id}')">×</button></div>
+ <div class="teams"><div class="tl">${slot(u,0)}${slot(u,1)}</div><div class="tr">${slot(u,2)}${slot(u,3)}</div></div>
+ <div class="row" style="padding:10px 12px"><button class="b"
+${ok?'':'disabled'}
+onclick="act('POST','/api/upnext/${u.id}/send',{},'Sent to court')">
+
+Send to Court
+
+</button><button class="b g"
+onclick="callPlayers(${u.id})">
+
+${u.called?'📣 Called':'Call Players'}
+
+</button></div></div>`};
+const courtCard=c=>{const m=S.matches.find(x=>x.court===c),u=S.upnext[0],ok=u&&u.slots.every(Boolean);
+const head=`<div class="uh">
+
+<h3>Court ${c}</h3>
+
+<span class="tag ${m?'t3':'t1'}">
+${m?'Playing '+mins(m.started):'Available'}
+</span>
+
+<span style="flex:1"></span>
+
+${
+m
+?
+`<button
+    class="b g"
+    style="padding:4px 10px;font-size:12px"
+    onclick="callCourt(${m.id})">
+
+    📣 Call Players
+
+</button>`
+:
+(
+!m && c===S.courts && S.courts>1
+?
+`<button
+    class="x"
+    onclick="act('POST','/api/courts/remove')">
+
+    ×
+
+</button>`
+:
+''
+)
+}
+
+</div>`;
+
+ if(m)return `<div class="card court">${head}<div class="tm"><b>${nm(m.t1a)} & ${nm(m.t1b)}</b></div><div class="mut">vs</div><div class="tm"><b>${nm(m.t2a)} & ${nm(m.t2b)}</b></div><div class="row"><input class="score" type="number" min="0" id="a${m.id}" placeholder="T1"><input class="score" type="number" min="0" id="b${m.id}" placeholder="T2"><button class="b" onclick="fin(${m.id})">Finish</button><button class="b g" onclick="editM(${m.id})">Edit</button></div></div>`;
+ return `<div class="card court free">${head}<div class="pv">${ok?`<div>${u.slots.slice(0,2).map(nm).join('<br>')}</div><span class="mut">vs</span><div>${u.slots.slice(2).map(nm).join('<br>')}</div>`:'<span class="mut" style="grid-column:1/-1">No full Up Next match yet</span>'}</div>
+ <button class="b wide" ${ok?'':'disabled'} onclick="act('POST','/api/upnext/${(u&&u.id)||0}/send',{court:${c}},'Match started')">Start Up Next 1</button><button class="b g wide" onclick="choose(${c})">Choose Players</button></div>`};
+function queue(){
+ usedUp=new Set(S.upnext.flatMap(u=>u.slots).filter(Boolean));
+ const inQ=new Set(S.queue.map(r=>r.player_id)),onCourt=new Set(S.matches.flatMap(m=>[m.t1a,m.t1b,m.t2a,m.t2b]));
+ const avail=S.players.filter(p=>!inQ.has(p.id)&&!onCourt.has(p.id));
+ const em=B.match&&S.matches.find(m=>m.id===B.match);if(B.match&&!em)noB();
+ let h=`<div class="row"><h3 style="margin:0">Live Courts <span class="mut">(${S.courts})</span></h3><span style="flex:1"></span><button class="b g" onclick="act('POST','/api/courts/add')">+ Add Court</button></div><div class="cards">${[...Array(S.courts)].map((_,i)=>courtCard(i+1)).join('')}</div>`;
+ if(em||B.court){const pool=S.queue.map(r=>r.player).concat(em?[em.t1a,em.t1b,em.t2a,em.t2b].map(P):[]);
+  const sel=i=>`<select onchange="B.p[${i}]=+this.value"><option value="0">— pick —</option>${pool.map(p=>`<option value="${p.id}" ${p.id===B.p[i]?'selected':''}>${esc(p.name)}</option>`).join('')}</select>`;
+  h+=`<div class="card" style="margin-bottom:12px"><h3>${em?'Edit Court '+em.court+' (live match)':'Choose players for Court '+B.court}</h3><div class="row"><b style="width:64px">Team 1</b>${sel(0)}${sel(1)}</div><div class="row"><b style="width:64px">Team 2</b>${sel(2)}${sel(3)}</div>
+  <div class="row"><button class="b" onclick="saveB()">${em?'Save changes':'Assign to court'}</button><button class="b g" onclick="noB();render()">Cancel</button></div></div>`}
+ const hd=S.queue[0]?.player,tt=hd?.last_res==='W'?'Winners up next':hd?.last_res==='L'?'Losers up next':'Next up';
+ const qcol=`<div class="qc"><div class="qh"><b>Queue (${S.queue.length})</b><span class="tag t1">${tt}</span><span style="flex:1"></span><button class="b g" onclick="showAdd=!showAdd;render()">+ Add player</button></div>
+ ${showAdd?`<div class="row" style="padding:8px 14px"><select id="qp">${avail.map(p => `
+  <option value="${p.id}">
+    ${esc(p.name)}
+    ${onCourt.has(p.id) ? ' 🎾 (Playing)' : ''}
+    (${SK[p.skill]})
+  </option>
+`).join('')}</select><button class="b" onclick="act('POST','/api/queue',{id:+$('#qp').value})">Join</button></div>`:''}
+ <div class="mut" style="padding:6px 14px">${[1,2,3,4].map(k=>SK[k]+' '+S.queue.filter(r=>r.player.skill===k).length).join(' · ')}</div>
+ <div class="ql">${S.queue.map((r,i)=>`<div class="qr"><span class="qn">${i+1}</span><div style="flex:1"><b>${esc(r.player.name)}</b> <span class="tag t${r.player.skill}">${ab[r.player.skill]}</span><div class="mut">${r.player.wins}W-${r.player.losses}L
+·
+${r.player.wins+r.player.losses} games · ⏱ ${wt(r.joined)}</div></div><button class="x" onclick="act('DELETE','/api/queue/${r.player_id}')">×</button></div>`).join('')||'<div class="qr mut">Empty</div>'}</div></div>`;
+ h+=`<div class="row" style="margin-top:16px"><h3 style="margin:0">Up Next <span class="mut">(${S.upnext.length})</span></h3><span style="flex:1"></span><label class="mut"><input type="checkbox" ${S.auto?'checked':''} onchange="act('POST','/api/auto',{on:this.checked})"> Auto-send</label><button class="b g" onclick="act('POST','/api/upnext/refresh')">↻ Refresh Up Next</button><button class="b g" onclick="act('POST','/api/upnext')">+ Add match</button></div>
+ <div class="qlayout">${qcol}<div class="cards" style="margin:0">${S.upnext.map(card).join('')||'<div class="mut">Need 4 waiting players to build an Up Next match.</div>'}</div></div>`;
+ $('#main').innerHTML=h}
+function players(){$('#main').innerHTML=`<div class="card"><h3>Register player</h3><div class="row"><input
+    id="rn"
+    placeholder="Full name"
+    onkeydown="if(event.key==='Enter') reg()"><select id="rs">${[1,2,3,4].map(k=>`<option value="${k}" ${k==2?'selected':''}>${SK[k]}</option>`).join('')}</select>
+ <button class="b" onclick="reg()">Register</button></div></div><div class="grid" style="margin-top:12px">${S.players.map(p=>`<div class="card"><h3>${esc(p.name)} ${p.present?'<span class="tag t1">here</span>':''}</h3>${tag(p.skill)} <span class="mut">ELO ${p.elo} · ${p.wins}W-${p.losses}L</span>
+ <div class="row"><button class="b g" onclick="badge(${p.id})">QR badge</button>${p.present?`<button class="b g" onclick="act('POST','/api/leave',{id:${p.id}})">Leave</button>`:''}</div></div>`).join('')}</div><div id="bd"></div>`}
+window.reg=()=>{
+
+    const name=$('#rn').value.trim();
+
+    if(!name){
+        toast('Enter player name');
+        $('#rn').focus();
+        return;
+    }
+
+    act(
+        'POST',
+        '/api/players',
+        {
+            name,
+            skill:+$('#rs').value
+        },
+        'Registered'
+    ).then(r=>{
+
+        if(!r) return;
+
+        $('#rn').value='';
+
+        load().then(()=>{
+
+            // Return cursor to Full Name field
+            $('#rn')?.focus();
+
+        });
+
+    });
+
+};
+window.badge=id=>{const p=P(id);$('#bd').innerHTML=`<div class="card" style="margin-top:12px;text-align:center"><h3>${esc(p.name)}</h3><div class="qrbox" id="qrc"></div><div class="mut">${p.qr} — screenshot or print, scan at the kiosk</div></div>`;
+ try{new QRCode($('#qrc'),{text:p.qr,width:180,height:180})}catch{$('#qrc').textContent=p.qr}$('#bd').scrollIntoView()};
+function leader(){$('#main').innerHTML=`<div class="card"><table><tr><th>#</th><th>Player</th><th>Level</th><th>Points Diff</th><th>W-L</th><th>Win %</th></tr>${S.players.map((p,i)=>`<tr><td>${['🥇','🥈','🥉'][i]||i+1}</td><td>${esc(p.name)}</td><td>${tag(p.skill)}</td><td>
+    <b style="
+      color:${(p.points_diff||0)>=0
+      ? '#16a34a'
+      : '#dc2626'}">
+
+      ${(p.points_diff||0)>0?'+':''}
+      ${p.points_diff||0}
+
+    </b>
+</td><td>${p.wins}-${p.losses}</td><td>${p.wins+p.losses?Math.round(100*p.wins/(p.wins+p.losses)):'–'}</td></tr>`).join('')}</table></div>`}
+function history(){
+
+    $('#main').innerHTML=
+    '<div class="card">Loading history...</div>';
+
+    fetch('/api/admin/sessions',{
+        headers:{
+            'x-admin-pin':pin
+        }
+    })
+
+    .then(r=>r.json())
+
+    .then(rows=>{
+
+        $('#main').innerHTML=`
+
+        <div class="card">
+
+        <h3>Leaderboard History</h3>
+
+        <table>
+
+        <tr>
+            <th>Name</th>
+            <th>Date</th>
+            <th></th>
+        </tr>
+
+        ${rows.map(s=>`
+
+        <tr>
+
+            <td>${esc(s.name)}</td>
+
+            <td>
+            ${new Date(s.created)
+                .toLocaleString()}
+            </td>
+
+            <td>
+
+            <button class="b g"
+             onclick="viewHistory(${s.id})">
+
+                View
+
+            </button>
+
+            </td>
+
+        </tr>
+
+        `).join('')}
+
+        </table>
+
+        </div>
+
+        `;
+
+    });
+
+}
+function tourney(){let h='';if(isAdmin())h=`<div class="card"><h3>New tournament (doubles, single elimination)</h3><div class="row"><input id="tn" placeholder="Name"></div><div class="row">${S.players.map(p=>`<label><input type="checkbox" class="tp" value="${p.id}" ${p.present?'checked':''}> ${esc(p.name)}</label>`).join(' ')}</div><div class="mut">Teams are auto-paired: strongest with weakest by ELO.</div><div class="row"><button class="b" onclick="mkT()">Create</button></div></div>`;
+ else h='<p class="mut">Admin mode is required to create tournaments. Anyone can report match scores.</p>';
+ h+=S.tournaments.map(t=>{const rs=[...new Set(t.matches.map(m=>m.round))];return `<div class="card" style="margin-top:12px"><h3>${esc(t.name)} <span class="tag">${t.status}</span> ${isAdmin()?`<button class="b g" onclick="act('DELETE','/api/admin/tournaments/${t.id}')">Delete</button>`:''}</h3><div class="bracket">${rs.map(r=>`<div><b>Round ${r}</b>${t.matches.filter(m=>m.round===r).map(m=>`<div class="card" style="margin:6px 0">
+ <div style="${m.winner===m.t1?'font-weight:700':''}">${esc(m.t1)} ${m.s1??''}</div><div style="${m.winner===m.t2?'font-weight:700':''}">${esc(m.t2)} ${m.s2??''}</div>
+ ${m.winner?'':`<div class="row"><input class="score" type="number" id="ta${m.id}" placeholder="T1"><input class="score" type="number" id="tb${m.id}" placeholder="T2"><button class="b" onclick="tr(${m.id})">Save</button></div>`}</div>`).join('')}</div>`).join('')}</div>${t.status==='finished'?`<h3>🏆 ${esc(t.matches.at(-1).winner)}</h3>`:''}</div>`}).join('');$('#main').innerHTML=h}
+window.mkT=()=>act('POST','/api/admin/tournaments',{name:$('#tn').value,players:[...document.querySelectorAll('.tp:checked')].map(x=>+x.value)},'Tournament created');
+window.tr=id=>act('POST','/api/tmatch/'+id,{s1:parseInt($('#ta'+id).value),s2:parseInt($('#tb'+id).value)});
+function checkin(){$('#main').innerHTML=`<div class="card"><h3>QR check-in</h3><div id="reader"></div><div class="row"><button class="b" onclick="scan()">Start camera</button><input id="manual" placeholder="or type code (PH-…)"><button class="b g" onclick="ci($('#manual').value)">Check in</button></div>
+ <div class="mut">Camera needs HTTPS or http://localhost. On phones, use the kiosk device's browser at localhost, or serve behind HTTPS.</div></div>`}
+let last='';window.ci=async c=>{if(!c||c===last)return;last=c;setTimeout(()=>last='',3000);const r=await act('POST','/api/checkin',{qr:c});if(r?.name)toast('✅ Welcome, '+r.name+'!')};
+window.scan=()=>{if(!window.Html5Qrcode)return toast('Scanner library failed to load (needs internet for CDN)');scanner=new Html5Qrcode('reader');
+ scanner.start({facingMode:'environment'},{fps:10,qrbox:220},t=>ci(t)).catch(e=>{toast('Camera error: '+e);scanner=null})};
+function admin(){if(!isAdmin()){$('#main').innerHTML='<p>Click <b>Admin</b> in the header and enter the PIN (default 1234, set ADMIN_PIN env var to change).</p>';return}
+ $('#main').innerHTML=`<div class="card"><h3>Courts</h3><div class="row"><input id="nc" type="number" min="1" max="20" value="${S.courts}"><button class="b" onclick="act('POST','/api/admin/courts',{n:+$('#nc').value},'Saved')">Set court count</button></div></div>
+ <div class="card" style="margin-top:12px">
+  <div class="row">
+    <h3 style="margin:0">Manage players</h3>
+    <span style="flex:1"></span>
+
+    <button class="b d"
+      onclick="confirm('Delete ALL players? This cannot be undone.') &&
+      act('DELETE','/api/admin/players/all',{},'All players deleted')">
+      Delete All Players
+    </button>
+  </div><table>${S.players.map(p=>`<tr><td><input id="en${p.id}" value="${esc(p.name)}"></td><td><select id="es${p.id}">${[1,2,3,4].map(k=>`<option value="${k}" ${k==p.skill?'selected':''}>${SK[k]}</option>`).join('')}</select></td><td><input class="score" type="number" id="ee${p.id}" value="${p.elo}"></td>
+ <td><button class="b" onclick="ep(${p.id})">Save</button> <button class="b d" onclick="confirm('Delete?')&&act('DELETE','/api/admin/players/${p.id}')">Delete</button></td></tr>`).join('')}</table></div>
+ <div class="card" style="margin-top:12px">
+
+<h3>Session</h3>
+
+<div class="row">
+
+<button class="b"
+onclick="saveSession()">
+
+💾 Save Session
+
+</button>
+
+<button class="b d"
+onclick="resetSession()">
+
+🔄 New Session
+
+</button>
+
+</div>
+
+</div>`}
+window.ep=id=>act('PATCH','/api/admin/players/'+id,{name:$('#en'+id).value,skill:+$('#es'+id).value,elo:+$('#ee'+id).value},'Saved');
+window.ep=id=>act(
+    'PATCH',
+    '/api/admin/players/'+id,
+    {
+        name:$('#en'+id).value,
+        skill:+$('#es'+id).value,
+        elo:+$('#ee'+id).value
+    },
+    'Saved'
+);
+
+// ADD HERE ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
+
+window.viewHistory=id=>{
+
+    fetch(
+        '/api/admin/sessions/'+id,
+        {
+            headers:{
+                'x-admin-pin':pin
+            }
+        }
+    )
+
+    .then(r=>r.json())
+
+    .then(rows=>{
+
+        $('#main').innerHTML=`
+
+        <div class="card">
+
+        <h3>Historical Leaderboard</h3>
+
+        <table>
+
+        <tr>
+            <th>Rank</th>
+            <th>Player</th>
+            <th>W-L</th>
+            <th>Diff</th>
+        </tr>
+
+        ${rows.map(r=>`
+
+        <tr>
+
+            <td>${r.rank}</td>
+
+            <td>${esc(r.player_name)}</td>
+
+            <td>${r.wins}-${r.losses}</td>
+
+            <td>${r.points_diff}</td>
+
+        </tr>
+
+        `).join('')}
+
+        </table>
+
+        </div>
+
+        `;
+
+    });
+
+};
+
+// KEEP THE REMAINING CODE BELOW
+
+setInterval(()=>S&&render(),30000);
+connect();
+load();
+window.saveSession=()=>{
+
+    const name=prompt(
+        'Session Name',
+        new Date().toLocaleDateString()
+    );
+
+    if(!name) return;
+
+    act(
+        'POST',
+        '/api/admin/save-session',
+        {name},
+        'Session saved'
+    ).then(()=>{
+
+        history();
+
+    });
+
+};
+
+window.resetSession=()=>{
+
+    if(!confirm(
+        'Reset all matches and statistics?'
+    )) return;
+
+    act(
+        'POST',
+        '/api/admin/reset',
+        {},
+        'New session started'
+    );
+
+};
+window.callMatch=(u)=>{
+
+    const names=id=>
+        S.players.find(p=>p.id===id)?.name || '';
+
+    const team1=
+        `${names(u.slots[0])} and ${names(u.slots[1])}`;
+
+    const team2=
+        `${names(u.slots[2])} and ${names(u.slots[3])}`;
+
+    const freeCourt=
+        [...Array(S.courts)]
+        .map((_,i)=>i+1)
+        .find(c=>
+            !S.matches.some(m=>m.court===c)
+        );
+
+    const msg =
+        freeCourt
+        ? `Next Game, ${team1} versus ${team2}. Please proceed to Court ${freeCourt}.`
+        : `Next available court, ${team1} versus ${team2}.`;
+
+    const speech =
+        new SpeechSynthesisUtterance(msg);
+
+    speech.rate = 0.95;
+    speech.pitch = 1.1;
+    speech.volume = 1;
+
+    const voices =
+        speechSynthesis.getVoices();
+
+    const female =
+        voices.find(v =>
+            v.name.includes('Female') ||
+            v.name.includes('Zira') ||
+            v.name.includes('Jenny') ||
+            v.name.includes('Samantha')
+        );
+
+    if(female) speech.voice = female;
+
+    speechSynthesis.cancel();
+    speechSynthesis.speak(speech);
+
+};
+window.callPlayers=(id)=>{
+
+    const u =
+        S.upnext.find(x=>x.id===id);
+
+    if(!u) return;
+
+    callMatch(u);
+
+    act(
+        'POST',
+        '/api/upnext/'+id+'/call'
+    );
+
+};
+window.callCourt=id=>{
+
+    const m=S.matches.find(x=>x.id===id);
+
+    if(!m) return;
+
+    const nm=id=>
+        S.players.find(p=>p.id===id)?.name || '';
+
+    const team1=
+        `${nm(m.t1a)} and ${nm(m.t1b)}`;
+
+    const team2=
+        `${nm(m.t2a)} and ${nm(m.t2b)}`;
+
+    const msg=
+        ` Players please report to Court ${m.court}. ${team1} versus ${team2}. Court ${m.court}.`;
+
+    const speech=
+        new SpeechSynthesisUtterance(msg);
+
+    speech.rate=0.95;
+    speech.pitch=1.1;
+
+    const female=
+        speechSynthesis
+        .getVoices()
+        .find(v=>
+            v.name.includes('Jenny') ||
+            v.name.includes('Samantha') ||
+            v.name.includes('Zira')
+        );
+
+    if(female) speech.voice=female;
+
+    speechSynthesis.cancel();
+    speechSynthesis.speak(speech);
+
+};
+setInterval(()=>S&&render(),30000);connect();load();
+</script></body></html>
