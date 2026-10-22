@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Pickleholics Login</title>
+
+<style>
+body{
+    margin:0;
+    height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    background:#f4f7ef;
+    font-family:system-ui;
+}
+
+.card{
+    width:360px;
+    background:white;
+    padding:24px;
+    border-radius:16px;
+    box-shadow:0 10px 25px rgba(0,0,0,.1);
+    text-align:center;
+}
+
+img{
+    width:90px;
+    border-radius:50%;
+}
+
+input,select,button{
+    width:100%;
+    padding:12px;
+    margin-top:10px;
+    border-radius:8px;
+}
+
+button{
+    background:#7cb518;
+    color:white;
+    border:0;
+    cursor:pointer;
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="card">
+
+<img src="/images/pickleholics.jpg">
+
+<h2>Pickleholics</h2>
+
+<select id="role">
+
+<option value="user">
+User
+</option>
+
+<option value="admin">
+Admin
+</option>
+
+</select>
+
+<input
+id="password"
+type="password"
+placeholder="Password">
+
+<button onclick="login()">
+
+Login
+
+</button>
+
+</div>
+
+<script>
+
+function login(){
+
+    const role =
+        document.getElementById('role').value;
+
+    const password =
+        document.getElementById('password').value;
+
+    if(
+        role === 'user' &&
+        password === 'player'
+    ){
+
+        localStorage.role='user';
+
+        location.href='/index.html';
+
+        return;
+    }
+
+    if(
+        role === 'admin' &&
+        password === '1234'
+    ){
+
+        localStorage.role='admin';
+
+        sessionStorage.pin='1234';
+
+        location.href='/index.html';
+
+        return;
+    }
+
+    alert('Invalid Login');
+
+}
+
+</script>
+
+</body>
+</html>

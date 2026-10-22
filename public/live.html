@@ -69,6 +69,7 @@ th:nth-child(4){
 <th>#</th>
 <th>Player</th>
 <th>W-L</th>
+<th>Games</th>
 <th>Point Diff</th>
 </tr>
 </thead>
@@ -88,18 +89,24 @@ function draw(){if(!S)return;const now=Date.now()+off;$('#clock').textContent=ne
   .slice(0,2)
   .map((s,i)=>`<div class="card"><div class="top"><b>Next #${i+1}</b><span class="tag">${s.called?'📣 CALLING · ':''}${esc(s.note)}</span></div><div class="tm">${team(s.t1)}</div><div class="vs">VS</div><div class="tm">${team(s.t2)}</div></div>`).join('')||'<div class="card vs">Waiting for 4 players…</div>')
   +`<div class="wait">${S.queue.length} waiting: ${S.queue.slice(0,8).map(r=>esc(r.player.name)).join(', ')||'—'}</div>`;
- $('#lb').innerHTML=
+$('#lb').innerHTML=
 S.players.slice(0,10).map((p,i)=>`
 <tr>
 <td>${['🥇','🥈','🥉'][i]||i+1}</td>
+
 <td>${esc(p.name)}</td>
+
 <td>${p.wins}-${p.losses}</td>
+
+<td>${p.wins + p.losses}</td>
+
 <td>
 <b style="color:${(p.points_diff||0)>=0?'#4ade80':'#f87171'}">
 ${(p.points_diff||0)>0?'+':''}${p.points_diff||0}
 </b>
 </td>
+
 </tr>
-`).join('');}
+`).join('');;}
 const es=new EventSource('/events');es.onmessage=load;es.onopen=load;setInterval(draw,15000);load();
 </script></body></html>

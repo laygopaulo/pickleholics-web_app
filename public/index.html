@@ -6,7 +6,17 @@
 *{box-sizing:border-box}body{margin:0;font:15px system-ui,sans-serif;background:var(--bg);color:var(--ink)}
 header{display:flex;align-items:center;gap:12px;padding:12px 18px;background:var(--acc2);color:#fff;flex-wrap:wrap}
 header h1{margin:0;font-size:20px}header .live{margin-left:auto;font-size:12px}
-nav{display:flex;gap:4px;padding:8px 14px;overflow-x:auto;background:var(--card);border-bottom:1px solid var(--bd)}
+nav{
+    display:flex;
+    gap:4px;
+    padding:8px 14px;
+    overflow-x:auto;
+    scrollbar-width:none;
+}
+
+nav::-webkit-scrollbar{
+    display:none;
+}
 nav button{border:0;background:none;color:var(--ink);padding:8px 14px;border-radius:8px;cursor:pointer;font-size:14px;white-space:nowrap}
 nav button.on{background:var(--acc);color:#10200a;font-weight:600}
 main{max-width:1100px;margin:auto;padding:16px}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
@@ -50,7 +60,69 @@ table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:7px 8px;
     color:#fff;
     font-weight:700;
 }
+/* MOBILE FRIENDLY */
 
+@media (max-width:768px){
+
+    header{
+        flex-direction:column;
+        align-items:flex-start;
+    }
+
+    header .live{
+        margin-left:0;
+    }
+
+    header button{
+        width:100%;
+    }
+
+    .grid{
+        grid-template-columns:1fr;
+    }
+
+    .cards{
+        grid-template-columns:1fr;
+    }
+
+    .qlayout{
+        grid-template-columns:1fr;
+    }
+
+    .teams{
+        grid-template-columns:1fr;
+    }
+
+    button.b,
+    input,
+    select{
+        min-height:48px;
+        font-size:16px;
+    }
+
+    .qr{
+        padding:14px;
+    }
+
+    .qn{
+        font-size:28px;
+    }
+
+}
+@media(max-width:768px){
+
+    .mobile-form{
+        flex-direction:column;
+        align-items:stretch;
+    }
+
+    .mobile-form input,
+    .mobile-form select,
+    .mobile-form button{
+        width:100%;
+    }
+
+}
 </style></head><body>
 <header><h1> <img src="/images/pickleholics.jpg"  width="50" height="50" 
          alt="Pickleholics Logo"> Pickleholics</h1><span class="mut" style="color:#d6e8b8" id="sum"></span><span class="live" id="live">● connecting…</span>
@@ -211,8 +283,8 @@ ${r.player.wins+r.player.losses} games · ⏱ ${wt(r.joined)}</div></div><button
  h+=`<div class="row" style="margin-top:16px"><h3 style="margin:0">Up Next <span class="mut">(${S.upnext.length})</span></h3><span style="flex:1"></span><label class="mut"><input type="checkbox" ${S.auto?'checked':''} onchange="act('POST','/api/auto',{on:this.checked})"> Auto-send</label><button class="b g" onclick="act('POST','/api/upnext/refresh')">↻ Refresh Up Next</button><button class="b g" onclick="act('POST','/api/upnext')">+ Add match</button></div>
  <div class="qlayout">${qcol}<div class="cards" style="margin:0">${S.upnext.map(card).join('')||'<div class="mut">Need 4 waiting players to build an Up Next match.</div>'}</div></div>`;
  $('#main').innerHTML=h}
-function players(){$('#main').innerHTML=`<div class="card"><h3>Register player</h3><div class="row"><input
-    id="rn"
+function players(){$('#main').innerHTML=`<div class="card"><h3>Register player</h3><div class="row mobile-form">
+<input id="rn"
     placeholder="Full name"
     onkeydown="if(event.key==='Enter') reg()"><select id="rs">${[1,2,3,4].map(k=>`<option value="${k}" ${k==2?'selected':''}>${SK[k]}</option>`).join('')}</select>
  <button class="b" onclick="reg()">Register</button></div></div><div class="grid" style="margin-top:12px">${S.players.map(p=>`<div class="card"><h3>${esc(p.name)} ${p.present?'<span class="tag t1">here</span>':''}</h3>${tag(p.skill)} <span class="mut">ELO ${p.elo} · ${p.wins}W-${p.losses}L</span>
@@ -253,7 +325,9 @@ window.reg=()=>{
 };
 window.badge=id=>{const p=P(id);$('#bd').innerHTML=`<div class="card" style="margin-top:12px;text-align:center"><h3>${esc(p.name)}</h3><div class="qrbox" id="qrc"></div><div class="mut">${p.qr} — screenshot or print, scan at the kiosk</div></div>`;
  try{new QRCode($('#qrc'),{text:p.qr,width:180,height:180})}catch{$('#qrc').textContent=p.qr}$('#bd').scrollIntoView()};
-function leader(){$('#main').innerHTML=`<div class="card"><table><tr><th>#</th><th>Player</th><th>Level</th><th>Points Diff</th><th>W-L</th><th>Win %</th></tr>${S.players.map((p,i)=>`<tr><td>${['🥇','🥈','🥉'][i]||i+1}</td><td>${esc(p.name)}</td><td>${tag(p.skill)}</td><td>
+function leader(){$('#main').innerHTML=`<div class="card">
+<div style="overflow-x:auto">
+<table><tr><th>#</th><th>Player</th><th>Level</th><th>Points Diff</th><th>W-L</th><th>Win %</th></tr>${S.players.map((p,i)=>`<tr><td>${['🥇','🥈','🥉'][i]||i+1}</td><td>${esc(p.name)}</td><td>${tag(p.skill)}</td><td>
     <b style="
       color:${(p.points_diff||0)>=0
       ? '#16a34a'
@@ -263,7 +337,7 @@ function leader(){$('#main').innerHTML=`<div class="card"><table><tr><th>#</th><
       ${p.points_diff||0}
 
     </b>
-</td><td>${p.wins}-${p.losses}</td><td>${p.wins+p.losses?Math.round(100*p.wins/(p.wins+p.losses)):'–'}</td></tr>`).join('')}</table></div>`}
+</td><td>${p.wins}-${p.losses}</td><td>${p.wins+p.losses?Math.round(100*p.wins/(p.wins+p.losses)):'–'}</td></tr>`).join('')}</table></div></div>`}
 function history(){
 
     $('#main').innerHTML=
