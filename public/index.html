@@ -142,33 +142,96 @@ const act=(m,u,b,msg)=>api(m,u,b).then(r=>{if(msg)toast(msg);return r}).catch(()
 async function load(){S=await (await fetch('/api/state')).json();OFF=S.now-Date.now();render()}
 function connect(){const es=new EventSource('/events');es.onopen=()=>{$('#live').textContent='● live';load()};es.onmessage=()=>{if(!document.activeElement?.matches('input,select'))load()};es.onerror=()=>$('#live').textContent='○ reconnecting…'}
 const isAdmin=()=>!!pin;
-const TABS=[
-['courts','Courts'],
-['queue','Queue'],
-['players','Players'],
-['leader','Leaderboard'],
-['history','History'],
-['tourney','Tournaments'],
-['checkin','QR Check-In'],
-['admin','Admin']
-];
-function nav(){$('#nav').innerHTML=TABS.map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="go('${k}')">${l}</button>`).join('');$('#adminBtn').textContent=isAdmin()?'Admin ✓':'Admin'}
+const TABS=isAdmin()
+? [
+    ['courts','Courts'],
+    ['queue','Queue'],
+    ['players','Players'],
+    ['leader','Leaderboard'],
+    ['history','History'],
+    ['tourney','Tournaments'],
+    ['checkin','QR Check-In'],
+    ['admin','Admin']
+]
+: [];
+
+function nav(){
+
+    if(!isAdmin()){
+
+        $('#nav').innerHTML=`
+            <span class="mut">
+                Login as Admin to access the application.
+            </span>
+        `;
+
+    }else{
+
+        $('#nav').innerHTML=TABS.map(([k,l])=>
+            `<button class="${tab===k?'on':''}" onclick="go('${k}')">${l}</button>`
+        ).join('');
+
+    }
+
+    $('#adminBtn').textContent=isAdmin()?'Admin ✓':'Admin';
+
+}
 function go(t){if(scanner&&t!=='checkin'){scanner.stop().catch(()=>{});scanner=null}tab=t;render()}
 $('#adminBtn').onclick=async()=>{if(isAdmin()){pin='';sessionStorage.pin='';toast('Admin mode off');return render()}
  const p=prompt('Admin PIN');if(!p)return;const r=await fetch('/api/admin/verify',{headers:{'x-admin-pin':p}});
  if(r.ok){pin=p;sessionStorage.pin=p;toast('Admin mode on');go('admin')}else toast('Wrong PIN')};
 
-function render(){if(!S)return;nav();$('#sum').textContent=`${S.players.filter(p=>p.present).length} here · ${S.queue.length} waiting · ${S.matches.length}/${S.courts} courts live`;
- if(tab==='checkin'&&scanner)return; ({
- courts,
- queue,
- players,
- leader,
- history,
- tourney,
- checkin,
- admin
-})[tab]()}
+function render(){
+
+    if(!S)return;
+
+    nav();
+
+    if(!isAdmin()){
+
+        $('#main').innerHTML=`
+
+        <div class="card">
+
+            <h2>Pickleholics</h2>
+
+            <p>
+                Please login as Administrator
+                to access the application.
+            </p>
+
+            <p>
+                Live View remains available.
+            </p>
+
+        </div>
+
+        `;
+
+        return;
+
+    }
+
+    $('#sum').textContent=
+    `${S.players.filter(p=>p.present).length}
+    here · ${S.queue.length}
+    waiting · ${S.matches.length}/${S.courts}
+    courts live`;
+
+    if(tab==='checkin'&&scanner)return;
+
+    ({
+        courts,
+        queue,
+        players,
+        leader,
+        history,
+        tourney,
+        checkin,
+        admin
+    })[tab]();
+
+}
 function courts(){let h='<div class="row"><button class="b" onclick="act(\'POST\',\'/api/assign\',{}, \'Courts filled\')">Auto-assign free courts</button><span class="mut">Needs 4+ players waiting. Most idle first; winners vs winners, losers vs losers.</span></div><div class="grid">';
  for(let c=1;c<=S.courts;c++){const m=S.matches.find(x=>x.court===c);
   h+=m?`<div class="card court"><h3>Court ${c} <span class="mut">· ${mins(m.started)}</span></h3><div class="vs">${nm(m.t1a)} & ${nm(m.t1b)}</div><div class="mut">vs</div><div class="vs">${nm(m.t2a)} & ${nm(m.t2b)}</div>
@@ -414,7 +477,7 @@ function checkin(){$('#main').innerHTML=`<div class="card"><h3>QR check-in</h3><
 let last='';window.ci=async c=>{if(!c||c===last)return;last=c;setTimeout(()=>last='',3000);const r=await act('POST','/api/checkin',{qr:c});if(r?.name)toast('✅ Welcome, '+r.name+'!')};
 window.scan=()=>{if(!window.Html5Qrcode)return toast('Scanner library failed to load (needs internet for CDN)');scanner=new Html5Qrcode('reader');
  scanner.start({facingMode:'environment'},{fps:10,qrbox:220},t=>ci(t)).catch(e=>{toast('Camera error: '+e);scanner=null})};
-function admin(){if(!isAdmin()){$('#main').innerHTML='<p>Click <b>Admin</b> in the header and enter the PIN (default 1234, set ADMIN_PIN env var to change).</p>';return}
+function admin(){if(!isAdmin()){$('#main').innerHTML='<p>Click <b>Admin</b> in the header and enter the PIN (set ADMIN_PIN env var to change).</p>';return}
  $('#main').innerHTML=`<div class="card"><h3>Courts</h3><div class="row"><input id="nc" type="number" min="1" max="20" value="${S.courts}"><button class="b" onclick="act('POST','/api/admin/courts',{n:+$('#nc').value},'Saved')">Set court count</button></div></div>
  <div class="card" style="margin-top:12px">
   <div class="row">
