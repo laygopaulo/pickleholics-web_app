@@ -1,7 +1,7 @@
 // Pickleholics — zero-dependency server (Node >= 22.13): node:sqlite + SSE real-time.
 const http = require('http'), fs = require('fs'), path = require('path'), crypto = require('crypto');
 const { DatabaseSync } = require('node:sqlite');
-const PORT = process.env.PORT || 3000, PIN = process.env.ADMIN_PIN || '1234';
+const PORT = process.env.PORT || 3000, PIN = process.env.ADMIN_PIN || 'pickleholics';
 const db = new DatabaseSync(path.join(__dirname, 'pickleholics.db'));
 db.exec(`
 CREATE TABLE IF NOT EXISTS players(id INTEGER PRIMARY KEY, name TEXT NOT NULL, skill INTEGER DEFAULT 2, elo INTEGER DEFAULT 1000,

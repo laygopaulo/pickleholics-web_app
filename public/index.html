@@ -142,8 +142,7 @@ const act=(m,u,b,msg)=>api(m,u,b).then(r=>{if(msg)toast(msg);return r}).catch(()
 async function load(){S=await (await fetch('/api/state')).json();OFF=S.now-Date.now();render()}
 function connect(){const es=new EventSource('/events');es.onopen=()=>{$('#live').textContent='● live';load()};es.onmessage=()=>{if(!document.activeElement?.matches('input,select'))load()};es.onerror=()=>$('#live').textContent='○ reconnecting…'}
 const isAdmin=()=>!!pin;
-const TABS=isAdmin()
-? [
+const TABS=[
     ['courts','Courts'],
     ['queue','Queue'],
     ['players','Players'],
@@ -152,34 +151,59 @@ const TABS=isAdmin()
     ['tourney','Tournaments'],
     ['checkin','QR Check-In'],
     ['admin','Admin']
-]
-: [];
+];
 
 function nav(){
 
     if(!isAdmin()){
 
-        $('#nav').innerHTML=`
-            <span class="mut">
-                Login as Admin to access the application.
-            </span>
-        `;
+        $('#nav').innerHTML='';
 
-    }else{
+        $('#adminBtn').textContent='Admin Login';
 
-        $('#nav').innerHTML=TABS.map(([k,l])=>
-            `<button class="${tab===k?'on':''}" onclick="go('${k}')">${l}</button>`
-        ).join('');
+        return;
 
     }
 
-    $('#adminBtn').textContent=isAdmin()?'Admin ✓':'Admin';
+    $('#nav').innerHTML =
+        TABS.map(([k,l])=>
+            `<button
+                class="${tab===k?'on':''}"
+                onclick="go('${k}')">
+                ${l}
+            </button>`
+        ).join('');
+
+    $('#adminBtn').textContent='Admin ✓';
 
 }
 function go(t){if(scanner&&t!=='checkin'){scanner.stop().catch(()=>{});scanner=null}tab=t;render()}
-$('#adminBtn').onclick=async()=>{if(isAdmin()){pin='';sessionStorage.pin='';toast('Admin mode off');return render()}
+$('#adminBtn').onclick=async()=>{if(isAdmin()){
+
+    pin='';
+
+    sessionStorage.removeItem('pin');
+
+    toast('🔒 Admin mode OFF');
+
+    render();
+
+    return;
+
+}
+
  const p=prompt('Admin PIN');if(!p)return;const r=await fetch('/api/admin/verify',{headers:{'x-admin-pin':p}});
- if(r.ok){pin=p;sessionStorage.pin=p;toast('Admin mode on');go('admin')}else toast('Wrong PIN')};
+ if(r.ok){
+
+    pin=p;
+
+    sessionStorage.pin=p;
+
+    toast('✅ Admin mode ON');
+
+    go('courts');
+
+}else toast('Wrong PIN')};
 
 function render(){
 
@@ -187,22 +211,37 @@ function render(){
 
     nav();
 
+    $('#sum').textContent=
+        `${S.players.filter(p=>p.present).length}
+        here · ${S.queue.length}
+        waiting · ${S.matches.length}/${S.courts}
+        courts live`;
+
     if(!isAdmin()){
+
+        tab='';
 
         $('#main').innerHTML=`
 
-        <div class="card">
+        <div class="card" style="max-width:600px;margin:auto;text-align:center">
 
-            <h2>Pickleholics</h2>
+            <h2>🔒 Pickleholics Admin Access</h2>
 
             <p>
-                Please login as Administrator
-                to access the application.
+                Log in as Admin to access the application.
             </p>
 
-            <p>
+            <p class="mut">
                 Live View remains available.
             </p>
+
+            <div style="margin-top:20px">
+
+                <span class="tag t4">
+                    Admin Mode OFF
+                </span>
+
+            </div>
 
         </div>
 
@@ -212,13 +251,8 @@ function render(){
 
     }
 
-    $('#sum').textContent=
-    `${S.players.filter(p=>p.present).length}
-    here · ${S.queue.length}
-    waiting · ${S.matches.length}/${S.courts}
-    courts live`;
-
-    if(tab==='checkin'&&scanner)return;
+    if(tab==='checkin' && scanner)
+        return;
 
     ({
         courts,
@@ -232,6 +266,7 @@ function render(){
     })[tab]();
 
 }
+
 function courts(){let h='<div class="row"><button class="b" onclick="act(\'POST\',\'/api/assign\',{}, \'Courts filled\')">Auto-assign free courts</button><span class="mut">Needs 4+ players waiting. Most idle first; winners vs winners, losers vs losers.</span></div><div class="grid">';
  for(let c=1;c<=S.courts;c++){const m=S.matches.find(x=>x.court===c);
   h+=m?`<div class="card court"><h3>Court ${c} <span class="mut">· ${mins(m.started)}</span></h3><div class="vs">${nm(m.t1a)} & ${nm(m.t1b)}</div><div class="mut">vs</div><div class="vs">${nm(m.t2a)} & ${nm(m.t2b)}</div>
