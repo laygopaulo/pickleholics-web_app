@@ -30,7 +30,12 @@ CREATE TABLE IF NOT EXISTS session_results(
 );
 CREATE TABLE IF NOT EXISTS upnext(id INTEGER PRIMARY KEY, s0 INT, s1 INT, s2 INT, s3 INT, mode TEXT DEFAULT 'auto', note TEXT, called INT DEFAULT 0);`);
 
-for (const c of ['last_res TEXT', 'last_partner INT']) try { db.exec('ALTER TABLE players ADD COLUMN ' + c); } catch {}
+for (const c of [
+  'last_res TEXT',
+  'last_partner INT',
+  'fixed_partner INT'
+]) try { db.exec('ALTER TABLE players ADD COLUMN ' + c); } catch {}
+
 try {
     db.exec(
       'ALTER TABLE players ADD COLUMN points_diff INTEGER DEFAULT 0'
@@ -59,15 +64,196 @@ const broadcast = () => clients.forEach(c => c.write('data: update\n\n'));
 const shuffle = a => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const P1 = id => one('SELECT 1 x FROM players WHERE id=?', id);
 const liveIds = () => q("SELECT * FROM matches WHERE status='live'").flatMap(m => [m.t1a, m.t1b, m.t2a, m.t2b]);
-function pickFour(list) {
-  const head = list[0], same = head.last_res ? list.filter(p => p.last_res === head.last_res) : list;
-  const four = same.length >= 4 ? same.slice(0, 4) : [...same, ...list.filter(p => !same.includes(p))].slice(0, 4);
-  const mixed = four.some(p => p.last_res !== head.last_res);
-  const [a, b, c, d] = four, pairings = [[[a, b], [c, d]], [[a, c], [b, d]], [[a, d], [b, c]]];
-  const ok = pairings.filter(pr => !pr.some(([m, n]) => m.last_partner === n.id || n.last_partner === m.id));
-  const [t1, t2] = shuffle(ok.length ? ok : pairings)[0];
-  const note = !head.last_res ? 'New' : mixed ? 'Mixed' : head.last_res === 'W' ? 'Winners' : 'Losers';
-  return { t1: shuffle(t1).map(p => p.id), t2: shuffle(t2).map(p => p.id), note };
+function promotePartners(players){
+
+    const result=[];
+    const used=new Set();
+
+    for(const p of players){
+
+        if(used.has(p.id))
+            continue;
+
+        result.push(p);
+
+        used.add(p.id);
+
+        if(p.fixed_partner){
+
+            const partner=
+                players.find(
+                    x=>x.id===p.fixed_partner
+                );
+
+            if(
+                partner &&
+                !used.has(partner.id)
+            ){
+
+                result.push(partner);
+
+                used.add(partner.id);
+
+            }
+
+        }
+
+    }
+
+    return result;
+
+}
+function pickFour(list){
+
+    if(list.length < 4)
+        return null;
+
+    // Fixed partner comes first
+    const locked=list.find(
+        p=>p.fixed_partner
+    );
+
+    if(locked){
+
+        const partner=list.find(
+            p=>p.id===locked.fixed_partner
+        );
+
+        if(partner){
+
+            const others=list.filter(
+                p=>
+                    p.id!==locked.id &&
+                    p.id!==partner.id
+            );
+
+            if(others.length>=2){
+
+                return {
+
+                    t1:[
+                        locked.id,
+                        partner.id
+                    ],
+
+                    t2:[
+                        others[0].id,
+                        others[1].id
+                    ],
+
+                    note:'Fixed Partner'
+
+                };
+
+            }
+
+        }
+
+    }
+
+    // Winners vs Winners / Losers vs Losers
+    const head=list[0];
+    
+    const same=head.last_res
+        ? list.filter(
+            p=>p.last_res===head.last_res
+          )
+        : list;
+const promoted=
+    promotePartners(same);
+    let pool=
+    same.length>=4
+    ? promoted.slice(0,4)
+    : [...same,
+        ...list.filter(
+            p=>!same.includes(p)
+        )];
+
+const firstLock=pool.find(
+    p=>p.fixed_partner
+);
+
+if(firstLock){
+
+    const partner=pool.find(
+        p=>p.id===firstLock.fixed_partner
+    );
+
+    if(partner){
+
+        const others=pool.filter(
+            p=>
+                p.id!==firstLock.id &&
+                p.id!==partner.id
+        );
+
+        pool=[
+            firstLock,
+            partner,
+            ...others
+        ];
+
+    }
+
+}
+
+pool=pool.slice(0,4);
+
+    const [a,b,c,d]=pool;
+
+    const pairings=[
+
+        [[a,b],[c,d]],
+
+        [[a,c],[b,d]],
+
+        [[a,d],[b,c]]
+
+    ];
+
+    const nonRepeat=pairings.filter(pair=>
+
+        !pair.some(
+            ([x,y])=>
+
+                x.last_partner===y.id ||
+
+                y.last_partner===x.id
+        )
+
+    );
+
+    const choices=
+        nonRepeat.length
+        ? nonRepeat
+        : pairings;
+
+    const selected=
+        choices[
+          Math.floor(
+            Math.random()*choices.length
+          )
+        ];
+
+    const [t1,t2]=selected;
+
+    return {
+
+        t1:t1.map(x=>x.id),
+
+        t2:t2.map(x=>x.id),
+
+        note:
+            !head.last_res
+            ? 'New'
+
+            : head.last_res==='W'
+            ? 'Winners'
+
+            : 'Losers'
+
+    };
+
 }
 function startMatch(court, ids) {
   run('INSERT INTO matches(court,t1a,t1b,t2a,t2b,started) VALUES(?,?,?,?,?,?)', court, ids[0], ids[1], ids[2], ids[3], Date.now());
@@ -78,9 +264,43 @@ const getUp = () => q('SELECT * FROM upnext ORDER BY id');
 const slots = u => [u.s0, u.s1, u.s2, u.s3];
 const upn = () => +one("SELECT v FROM settings WHERE k='upn'").v;
 const setUpn = n => run("UPDATE settings SET v=? WHERE k='upn'", String(Math.max(0, n)));
-function pool(except) { // waiting players (most idle first) not already placed in another Up Next card
-  const used = new Set(getUp().filter(u => u.id !== except).flatMap(slots).filter(Boolean));
-  return q('SELECT p.id,p.last_res,p.last_partner FROM queue u JOIN players p ON p.id=u.player_id ORDER BY u.joined,u.id').filter(p => !used.has(p.id));
+function pool(except){
+
+    const used = new Set(
+        getUp()
+        .filter(u=>u.id!==except)
+        .flatMap(slots)
+        .filter(Boolean)
+    );
+
+    const players = q(`
+        SELECT *
+        FROM queue u
+        JOIN players p
+          ON p.id=u.player_id
+        ORDER BY u.joined,u.id
+    `);
+
+    const keep = [];
+
+    for(const p of players){
+
+        if(used.has(p.id))
+            continue;
+
+        if(
+            p.fixed_partner &&
+            used.has(p.fixed_partner)
+        ){
+            continue;
+        }
+
+        keep.push(p);
+
+    }
+
+    return keep;
+
 }
 function fillAuto(id) {
   const list = pool(id); if (list.length < 4) return false;
@@ -181,8 +401,43 @@ const routes = [
     run('UPDATE matches SET t1a=?,t1b=?,t2a=?,t2b=? WHERE id=?', ids[0], ids[1], ids[2], ids[3], old.id); }],
   ['POST', /^\/api\/auto$/, b => run("UPDATE settings SET v=? WHERE k='auto'", b.on ? '1' : '0')],
   ['POST', /^\/api\/upnext$/, () => { run("INSERT INTO upnext(mode) VALUES('manual')"); setUpn(upn() + 1); }],
-  ['POST', /^\/api\/upnext\/refresh$/, () => { run('DELETE FROM upnext'); syncUp(); }],
-  ['POST', /^\/api\/upnext\/(\d+)\/rebuild$/, (b, m) => { syncUp(); if (!fillAuto(+m[1])) throw 'Not enough waiting players'; }],
+  ['POST',
+ /^\/api\/upnext\/refresh$/,
+ () => {
+
+     run('DELETE FROM upnext');
+
+     syncUp();
+
+     return {
+         ok:true,
+         message:'Queue rebuilt'
+     };
+
+ }],
+  ['POST',
+ /^\/api\/upnext\/(\d+)\/rebuild$/,
+ (b,m)=>{
+
+    const id=+m[1];
+
+    run(`
+      UPDATE upnext
+      SET
+        s0=NULL,
+        s1=NULL,
+        s2=NULL,
+        s3=NULL
+      WHERE id=?
+    `,
+    id);
+
+    syncUp();
+
+    if(!fillAuto(id))
+        throw 'Not enough waiting players';
+
+ }],
   ['DELETE', /^\/api\/upnext\/(\d+)$/, (b, m) => { run('DELETE FROM upnext WHERE id=?', m[1]); setUpn(upn() - 1); }],
   ['POST', /^\/api\/upnext\/(\d+)\/slot$/, (b, m) => { syncUp(); const i = +b.i, id = +m[1], p = b.player ? +b.player : null;
     const u = getUp().find(x => x.id === id); if (!u || !(i >= 0 && i < 4)) throw 'Match not found';
@@ -195,7 +450,23 @@ const routes = [
     run("UPDATE settings SET v=? WHERE k='courts'", String(n + (add ? 1 : -1))); }],
   // admin-only
   ['POST', /^\/api\/admin\/courts$/, b => run("UPDATE settings SET v=? WHERE k='courts'", String(Math.min(20, Math.max(1, +b.n || 1))))],
-  ['PATCH', /^\/api\/admin\/players\/(\d+)$/, (b, m) => run('UPDATE players SET name=?,skill=?,elo=? WHERE id=?', b.name, b.skill, b.elo, m[1])],
+  ['PATCH',
+ /^\/api\/admin\/players\/(\d+)$/,
+ (b,m)=>run(
+    `UPDATE players
+     SET
+       name=?,
+       skill=?,
+       elo=?,
+       fixed_partner=?
+     WHERE id=?`,
+    b.name,
+    b.skill,
+    b.elo,
+    b.fixed_partner || null,
+    m[1]
+ )
+],
   ['DELETE',
  /^\/api\/admin\/players\/all$/,
  () => {
@@ -281,6 +552,25 @@ const routes = [
   ['POST', /^\/api\/admin\/cancel\/(\d+)$/, (b, m) => { const x = one('SELECT * FROM matches WHERE id=?', m[1]); [x.t1a, x.t1b, x.t2a, x.t2b].forEach(p => run('INSERT OR IGNORE INTO queue(player_id,joined) VALUES(?,?)', p, Date.now())); run('DELETE FROM matches WHERE id=?', m[1]); }],
   ['POST', /^\/api\/admin\/tournaments$/, b => createTournament(b.name || 'Tournament', b.players || [])],
   ['DELETE', /^\/api\/admin\/tournaments\/(\d+)$/, (b, m) => { run('DELETE FROM tmatches WHERE tid=?', m[1]); run('DELETE FROM tournaments WHERE id=?', m[1]); }],
+  ['POST',
+  /^\/api\/player\/partner$/,
+  b=>{
+
+      run(
+        'UPDATE players SET fixed_partner=? WHERE id=?',
+        b.partner,
+        b.player
+      );
+
+      run(
+        'UPDATE players SET fixed_partner=? WHERE id=?',
+        b.player,
+        b.partner
+      );
+
+      return {ok:true};
+
+  }],
   ['POST', /^\/api\/admin\/reset$/, () => {
 
     run('DELETE FROM queue');
@@ -297,6 +587,7 @@ const routes = [
         losses = 0,
         last_res = NULL,
         last_partner = NULL,
+        fixed_partner = NULL,
         points_diff = 0,
         elo = 800 + skill * 200
     `);
