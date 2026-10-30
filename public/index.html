@@ -878,19 +878,31 @@ window.viewHistory=id=>{
     .then(rows=>{
 
         $('#main').innerHTML=`
-
         <div class="card">
 
         <h3>Historical Leaderboard</h3>
 
-        <table>
+        <div style="
+            max-height:600px;
+            overflow-y:auto;
+            overflow-x:hidden;
+        ">
 
+      <table style="width:100%;border-collapse:collapse">
+        <thead style="
+            position:sticky;
+            top:0;
+            background:var(--card);
+            z-index:1;
+        ">
         <tr>
             <th>Rank</th>
             <th>Player</th>
             <th>W-L</th>
             <th>Diff</th>
         </tr>
+        </thead>
+        <tbody>
 
         ${rows.map(r=>`
 
@@ -907,11 +919,11 @@ window.viewHistory=id=>{
         </tr>
 
         `).join('')}
-
+</tbody>
         </table>
 
         </div>
-
+        </div>
         `;
 
     });
