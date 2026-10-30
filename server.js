@@ -52,7 +52,9 @@ function state() {
   const P = Object.fromEntries(players.map(p => [p.id, p]));
   const queue = q('SELECT * FROM queue ORDER BY joined,id').map(r => ({ ...r, player: P[r.player_id] }));
   const matches = q("SELECT * FROM matches WHERE status='live' ORDER BY court");
-  const history = q("SELECT * FROM matches WHERE status='done' ORDER BY ended DESC LIMIT 15");
+  const history = q(
+    "SELECT * FROM matches WHERE status='done' ORDER BY ended DESC"
+);
   const tournaments = q('SELECT * FROM tournaments ORDER BY id DESC').map(t => ({ ...t, matches: q('SELECT * FROM tmatches WHERE tid=? ORDER BY round,id', t.id) }));
   return { players, queue, matches, history, tournaments, courts: courts(), auto: one("SELECT v FROM settings WHERE k='auto'").v === '1', upnext: up, suggestions: up.filter(u => u.slots.every(Boolean)).map(u => ({ t1: u.slots.slice(0, 2), t2: u.slots.slice(2), note: u.note || 'Manual', called: u.called })), now: Date.now() };
 }
@@ -374,7 +376,45 @@ function createTournament(name, ids) {
   for (let i = 0; i < teams.length; i += 2) run('INSERT INTO tmatches(tid,round,t1,t2,winner) VALUES(?,?,?,?,?)', tid, 1, teams[i], teams[i + 1] || 'BYE', teams[i + 1] ? null : teams[i]);
   nextRound(tid);
 }
+function rebuildPointsDiff(){
 
+    run(`
+        UPDATE players
+        SET points_diff = 0
+    `);
+
+    const matches = q(`
+        SELECT *
+        FROM matches
+        WHERE status='done'
+    `);
+
+    for(const m of matches){
+
+        const diffA = m.s1 - m.s2;
+        const diffB = m.s2 - m.s1;
+
+        [m.t1a,m.t1b].forEach(id=>{
+            run(
+                `UPDATE players
+                 SET points_diff = points_diff + ?
+                 WHERE id=?`,
+                diffA,
+                id
+            );
+        });
+
+        [m.t2a,m.t2b].forEach(id=>{
+            run(
+                `UPDATE players
+                 SET points_diff = points_diff + ?
+                 WHERE id=?`,
+                diffB,
+                id
+            );
+        });
+    }
+}
 const routes = [
   ['POST', /^\/api\/players$/, b => { if (!b.name?.trim()) throw 'Name required'; const skill = b.skill || 2;
     run('INSERT INTO players(name,skill,elo,qr) VALUES(?,?,?,?)', b.name.trim(), skill, 800 + skill * 200, 'PH-' + crypto.randomBytes(4).toString('hex')); }],
@@ -385,6 +425,29 @@ const routes = [
   ['POST', /^\/api\/leave$/, b => { run('UPDATE players SET present=0 WHERE id=?', b.id); run('DELETE FROM queue WHERE player_id=?', b.id); }],
   ['POST', /^\/api\/assign$/, () => ({ made: autoAssign() })],
   ['POST', /^\/api\/match\/(\d+)\/finish$/, (b, m) => { if (!Number.isInteger(b.s1) || !Number.isInteger(b.s2) || b.s1 === b.s2) throw 'Enter a valid, non-tied score'; finish(+m[1], b.s1, b.s2); }],
+ ['POST',
+ /^\/api\/history\/(\d+)\/edit$/,
+ (b,m)=>{
+
+    console.log('Edit Match', m[1]);
+
+   run(
+    'UPDATE matches SET s1=?, s2=? WHERE id=?',
+    Number(b.s1),
+    Number(b.s2),
+    Number(m[1])
+);
+
+rebuildPointsDiff();
+
+
+    return {
+        ok:true,
+        message:'Updated'
+    };
+}],
+
+
   ['POST', /^\/api\/tmatch\/(\d+)$/, (b, m) => { const t = one('SELECT * FROM tmatches WHERE id=?', m[1]); if (!t || t.winner) throw 'Not available';
     if (b.s1 === b.s2) throw 'No ties'; run('UPDATE tmatches SET s1=?,s2=?,winner=? WHERE id=?', b.s1, b.s2, b.s1 > b.s2 ? t.t1 : t.t2, t.id); nextRound(t.tid); }],
   ['POST', /^\/api\/assign\/manual$/, b => { const ids = four(b), c = +b.court;

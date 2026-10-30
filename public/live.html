@@ -83,7 +83,21 @@ const nm=id=>esc(S.players.find(p=>p.id===id)?.name||'?'),team=a=>a.map(nm).join
 async function load(){S=await(await fetch('/api/state')).json();off=S.now-Date.now();draw()}
 function draw(){if(!S)return;const now=Date.now()+off;$('#clock').textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
  let h='';for(let c=1;c<=S.courts;c++){const m=S.matches.find(x=>x.court===c);
-  h+=m?`<div class="card"><div class="top"><b>Court ${c}</b><span>${Math.floor((now-m.started)/60000)} min</span></div><div class="tm">${team([m.t1a,m.t1b])}</div><div class="vs">VS</div><div class="tm">${team([m.t2a,m.t2b])}</div></div>`
+  h+=m?`<div class="card">
+<div class="top">
+<b>Court ${c}</b>
+<span>${(() => {
+  const secs = Math.floor((now - m.started) / 1000);
+  const mins = Math.floor(secs / 60);
+  const rem = secs % 60;
+  return `${mins}:${String(rem).padStart(2,'0')}`;
+})()}</span>
+</div>
+<div class="tm">${team([m.t1a,m.t1b])}</div>
+<div class="vs">VS</div>
+<div class="tm">${team([m.t2a,m.t2b])}</div>
+</div>`
+
   :`<div class="card free"><div class="top"><b>Court ${c}</b><span>Open</span></div></div>`}
  $('#courts').innerHTML=h;
  $('#next').innerHTML=(S.suggestions
@@ -109,5 +123,5 @@ ${(p.points_diff||0)>0?'+':''}${p.points_diff||0}
 
 </tr>
 `).join('');;}
-const es=new EventSource('/events');es.onmessage=load;es.onopen=load;setInterval(draw,15000);load();
+const es=new EventSource('/events');es.onmessage=load;es.onopen=load;setInterval(draw,1000);load();
 </script></body></html>

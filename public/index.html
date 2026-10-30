@@ -134,7 +134,12 @@ table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:7px 8px;
 const SK=['','Beginner','Intermediate','Advanced','Pro'];let OFF=0,S=null,tab='courts',pin=sessionStorage.pin||'',scanner=null;
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const tag=k=>`<span class="tag t${k}">${SK[k]}</span>`,P=id=>S.players.find(p=>p.id===id),nm=id=>esc(P(id)?.name||'?');
-const mins=t=>Math.max(0,Math.floor((S.now-t)/60000))+'m';
+const mins=t=>{
+    const sec = Math.floor((S.now - t) / 1000);
+    const min = Math.floor(sec / 60);
+    const rem = sec % 60;
+    return `${min}:${String(rem).padStart(2,'0')}`;
+};
 function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display='none',2800)}
 async function api(method,url,body){const r=await fetch(url,{method,headers:{'Content-Type':'application/json','x-admin-pin':pin},body:body?JSON.stringify(body):undefined});
  const j=await r.json().catch(()=>({}));if(!r.ok){toast(j.error||'Error');throw 0}return j}
@@ -192,7 +197,8 @@ $('#adminBtn').onclick=async()=>{if(isAdmin()){
 
 }
 
- const p=prompt('Admin PIN');if(!p)return;const r=await fetch('/api/admin/verify',{headers:{'x-admin-pin':p}});
+ openPin();
+return;
  if(r.ok){
 
     pin=p;
@@ -273,7 +279,41 @@ function courts(){let h='<div class="row"><button class="b" onclick="act(\'POST\
   <div class="row"><input class="score" type="number" min="0" id="a${m.id}" placeholder="T1"><input class="score" type="number" min="0" id="b${m.id}" placeholder="T2"><button class="b" onclick="fin(${m.id})">Finish</button><button class="b g" onclick="editM(${m.id})">Edit</button>
   ${isAdmin()?`<button class="b g" onclick="act('POST','/api/admin/cancel/${m.id}')">Cancel</button>`:''}</div></div>`
   :`<div class="card court free"><h3>Court ${c}</h3><div class="mut">Open — waiting for ${Math.max(0,4-S.queue.length)} more player(s)</div><div class="row"><button class="b g" onclick="B={match:null,court:${c},p:[0,0,0,0]};go('queue')">Assign players</button></div></div>`}
- h+='</div><h3>Recent matches</h3><div class="card"><table>'+(S.history.map(m=>`<tr><td>${nm(m.t1a)} & ${nm(m.t1b)}</td><td><b>${m.s1} – ${m.s2}</b></td><td>${nm(m.t2a)} & ${nm(m.t2b)}</td></tr>`).join('')||'<tr><td class="mut">No matches yet</td></tr>')+'</table></div>';
+ h+='</div><h3>Recent Matches</h3><div class="card" style="max-height:450px;overflow-y:auto"><table>'+(S.history.map(m=>`
+<tr>
+<td>
+${nm(m.t1a)} & ${nm(m.t1b)}
+</td>
+
+<td>
+<input
+    id="hs1_${m.id}"
+    type="number"
+    value="${m.s1}"
+    style="width:55px"
+>
+-
+<input
+    id="hs2_${m.id}"
+    type="number"
+    value="${m.s2}"
+    style="width:55px"
+>
+</td>
+
+<td>
+${nm(m.t2a)} & ${nm(m.t2b)}
+</td>
+
+<td>
+<button
+    class="b g"
+    onclick="saveHistoryScore(${m.id})">
+    Save
+</button>
+</td>
+</tr>
+`).join('')||'<tr><td class="mut">No matches yet</td></tr>')+'</table></div>';
  $('#main').innerHTML=h}
 window.fin=id=>act('POST',`/api/match/${id}/finish`,{s1:parseInt($('#a'+id).value),s2:parseInt($('#b'+id).value)},'Result saved, ELO updated');
 let B={match:null,court:0,p:[0,0,0,0]},showAdd=false,usedUp=new Set();const noB=()=>{B={match:null,court:0,p:[0,0,0,0]}};
@@ -282,7 +322,17 @@ window.choose=c=>{B={match:null,court:c,p:[0,0,0,0]};go('queue')};
 window.saveB=()=>(B.match?act('POST',`/api/match/${B.match}/edit`,{players:B.p},'Match updated'):act('POST','/api/assign/manual',{court:B.court,players:B.p},'Assigned to court')).then(r=>{if(r)noB()});
 const fmt=t=>{t=Math.max(0,Math.floor(t/1000));const h=Math.floor(t/3600),m=Math.floor(t%3600/60),s=t%60;return(h?h+':'+String(m).padStart(2,'0'):m)+':'+String(s).padStart(2,'0')};
 const wt=j=>`<span class="wt" data-t="${j}">${fmt(Date.now()+OFF-j)}</span>`;
-setInterval(()=>document.querySelectorAll('.wt').forEach(e=>e.textContent=fmt(Date.now()+OFF-e.dataset.t)),1000);
+setInterval(()=>document.querySelectorAll('.wt').forEach(e=>e.textContent=fmt(Date.now()+OFF-e.dataset.t)),30000);
+setInterval(()=>{
+    S.now = Date.now() + OFF;
+    document.querySelectorAll('.tag.t3').forEach(el=>{
+        const card = el.closest('.court');
+        if(!card) return;
+
+        const title = card.querySelector('h3');
+        const matchText = title?.textContent || '';
+    });
+},30000);
 const ab={1:'B',2:'I',3:'A',4:'P'},
 
 rate=p=>`${p.wins}W-${p.losses}L`;
@@ -304,7 +354,16 @@ ${ab[p.skill]}
 </span>
 
 </div></div><button class="x" onclick="act('POST','/api/upnext/${u.id}/slot',{i:${i},player:null})">×</button></div>`
- :`<div class="sl"><select onchange="if(+this.value)act('POST','/api/upnext/${u.id}/slot',{i:${i},player:+this.value})"><option value="0">+ pick player</option>${S.queue.filter(r=>!usedUp.has(r.player_id)).map(r=>`<option value="${r.player_id}">${esc(r.player.name)}</option>`).join('')}</select></div>`};
+ :`<div class="sl"><select onchange="
+if(+this.value){
+    act(
+        'POST',
+        '/api/upnext/${u.id}/slot',
+        {i:${i},player:+this.value},
+        'Player assigned'
+    ).then(()=>load());
+}
+"><option value="0">+ pick player</option>${S.queue.filter(r=>!usedUp.has(r.player_id)).map(r=>`<option value="${r.player_id}">${esc(r.player.name)}</option>`).join('')}</select></div>`};
 const card=(u,i)=>{const ok=u.slots.every(Boolean);
  return `<div class="card uc"><div class="uh"><h3>Up Next ${i+1}</h3><span class="tag">${u.mode==='auto'?'Auto':'Manual'}</span>${u.note?`<span class="tag t${u.note==='Winners'?1:u.note==='Losers'?4:3}">${esc(u.note)}</span>`:''}<span style="flex:1"></span><button class="b g" onclick="act('POST','/api/upnext/${u.id}/rebuild')">↻ Rebuild</button><button class="x" onclick="act('DELETE','/api/upnext/${u.id}')">×</button></div>
  <div class="teams"><div class="tl">${slot(u,0)}${slot(u,1)}</div><div class="tr">${slot(u,2)}${slot(u,3)}</div></div>
@@ -861,7 +920,32 @@ window.viewHistory=id=>{
 
 // KEEP THE REMAINING CODE BELOW
 
-setInterval(()=>S&&render(),30000);
+setInterval(()=>{
+    if(S){
+        S.now = Date.now() + OFF;
+        render();
+    }
+},30000);
+window.saveHistoryScore=id=>{
+
+    const s1=parseInt(
+        document.getElementById(`hs1_${id}`).value
+    );
+
+    const s2=parseInt(
+        document.getElementById(`hs2_${id}`).value
+    );
+
+    act(
+        'POST',
+        '/api/history/'+id+'/edit',
+        {s1,s2},
+        '✅ Match updated'
+    ).then(()=>{
+        load();
+    });
+
+};
 connect();
 load();
 window.saveSession=()=>{
@@ -1002,4 +1086,76 @@ window.callCourt=id=>{
 
 };
 setInterval(()=>S&&render(),30000);connect();load();
-</script></body></html>
+function openPin(){
+    document.getElementById('pinModal').style.display='flex';
+
+    setTimeout(()=>{
+        document.getElementById('pinInput').focus();
+    },100);
+}
+
+function closePin(){
+    document.getElementById('pinModal').style.display='none';
+    document.getElementById('pinInput').value='';
+}
+
+async function submitPin(){
+
+    const p=document.getElementById('pinInput').value;
+
+    if(!p) return;
+
+    const r=await fetch('/api/admin/verify',{
+        headers:{'x-admin-pin':p}
+    });
+
+    if(r.ok){
+        pin=p;
+        sessionStorage.pin=p;
+
+        closePin();
+
+        toast('✅ Admin mode ON');
+
+        go('courts');
+    }else{
+        toast('Wrong PIN');
+        document.getElementById('pinInput').value='';
+    }
+}
+
+</script>
+
+<div id="pinModal" style="
+display:none;
+position:fixed;
+inset:0;
+background:rgba(0,0,0,.6);
+z-index:9999;
+justify-content:center;
+align-items:center;
+">
+  <div style="
+    background:white;
+    padding:20px;
+    border-radius:12px;
+    min-width:300px;
+  ">
+    <h3>Admin Login</h3>
+
+    <input
+      type="password"
+      id="pinInput"
+      placeholder="Enter PIN"
+      style="width:100%;margin:10px 0;"
+      onkeydown="if(event.key==='Enter') submitPin()"
+    >
+
+    <div class="row">
+      <button class="b" onclick="submitPin()">Login</button>
+      <button class="b g" onclick="closePin()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+</body></html>
